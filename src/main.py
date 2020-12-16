@@ -1,44 +1,56 @@
-from flask import Flask, jsonify                            # Import flask class and jsonify to send responses in JSON format
-from marshmallow.exceptions import ValidationError          # Raises an error when validation fails on a field
-from flask_sqlalchemy import  SQLAlchemy                    # This is the ORM
-from flask_marshmallow import Marshmallow                   # Importing the Marshmallow class
-from flask_bcrypt import Bcrypt                             # Hashing package
-from flask_jwt_extended import JWTManager                   # Retrieves information form JWT
-from flask_migrate import Migrate                           # Package to handle migrations
+from flask import Flask, request, jsonify, abort
+app = Flask(__name__)
+from database import cursor, connection
 
-db = SQLAlchemy()                                           # New instance of SQLAlchemym named db
-ma = Marshmallow()                                          # New instance of marshmallow named ma. This is for serialization
-bcrypt = Bcrypt()                                           # New instance of Bcrypt, Hashing package
-jwt = JWTManager()                                          # New instance of JWT Manager
-migrate = Migrate()                                         # Makes new instance of migrate
+@app.route("/books", methods=["GET"])
+def book_index():
+    #Return all books
+    sql = "SELECT * FROM books"
+    cursor.execute(sql)
+    books = cursor.fetchall()
+    return jsonify(books)
 
-def create_app():
-    from dotenv import load_dotenv                          # Package to access environment variables
-    load_dotenv()                                           # Retrieve the env variables from .env
+@app.route("/books", methods=["POST"])
+def book_create():
+    #Create a new book
+    sql = "INSERT INTO books (title) VALUES (%s);"
+    cursor.execute(sql, (request.json["title"],))
+    connection.commit()
 
-    app = Flask(__name__)                                   # Creating an instnace of Flask named app
-    app.config.from_object('default_settings.app_config')   # Loads the configuration for the app object from default_settings.py
+    sql = "SELECT * FROM books ORDER BY ID DESC LIMIT 1"
+    cursor.execute(sql)
+    book = cursor.fetchone()
+    return jsonify(book)
 
-    db.init_app(app)                                        # This is gives these packages context to the correct 'app' object
-    ma.init_app(app)
-    bcrypt.init_app(app)
-    jwt.init_app(app)
-    migrate.init_app(app, db) 
+@app.route("/books/<int:id>", methods=["GET"])
+def book_show(id):
+    #Return a single book
+    sql = "SELECT * FROM books WHERE id = %s;"
+    cursor.execute(sql, (id,))
+    book = cursor.fetchone()
+    return jsonify(book)
 
-    from commands import db_commands                        # Imports db_commands so they can be registered
-    app.register_blueprint(db_commands)                     # Registering db_commands blueprint with app
+@app.route("/books/<int:id>", methods=["PUT", "PATCH"])
+def book_update(id):
+    #Update a book
+    sql = "UPDATE books SET title = %s WHERE id = %s;"
+    cursor.execute(sql, (request.json["title"], id))
+    connection.commit()
 
-    from controllers import registerable_controllers        # Import the registerable_controllers blueprint so it can be registered
-    for controller in registerable_controllers:
-        app.register_blueprint(controller)                  # Register each controller with app
+    sql = "SELECT * FROM books WHERE id = %s"
+    cursor.execute(sql, (id,))
+    book = cursor.fetchone()
+    return jsonify(book)
+
+@app.route("/books/<int:id>", methods=["DELETE"])
+def book_delete(id):
+    sql = "SELECT * FROM books WHERE id = %s;"
+    cursor.execute(sql, (id,))
+    book = cursor.fetchone()
     
-    @app.errorhandler(ValidationError)                      # Inherits from Marshmallow ValidationError
-    def handle_bad_request(error):  
-        return(jsonify(error.messages), 400)                # Return a message with a 400
+    if book:
+        sql = "DELETE FROM books WHERE id = %s;"
+        cursor.execute(sql, (id,))
+        connection.commit()
 
-    @app.errorhandler(500)                                  # Handling the server error
-    def handle_500(error):
-        app.logger.error(error)
-        return ("Server error: AKA bad stuff", 500)
-
-    return app                                              # Return the app object
+    return jsonify(book)
