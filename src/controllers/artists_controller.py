@@ -11,6 +11,28 @@ def artist_index():
     #Return all artists
     return jsonify(artists_schema.dump(artist))
     
+# from models.Book import Book
+# from models.User import User
+# from main import db
+# from schemas.BookSchema import book_schema, books_schema
+# from flask_jwt_extended import jwt_required
+# from flask import Blueprint, request, jsonify, abort
+# books = Blueprint('books', __name__, url_prefix="/books")
+
+# @books.route("/", methods=["POST"])
+# @jwt_required
+# def book_create():
+#     #Create a new book
+#     book_fields = book_schema.load(request.json)
+
+#     new_book = Book()
+#     new_book.title = book_fields["title"]
+
+#     db.session.add(new_book)
+#     db.session.commit()
+    
+#     return jsonify(book_schema.dump(new_book))
+    
     
 # @books.route("/", methods=["GET"])
 # def book_index():
